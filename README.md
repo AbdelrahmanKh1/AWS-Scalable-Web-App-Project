@@ -1,4 +1,4 @@
-Scalable Web Application with ALB and Auto Scaling
+#  Scalable Web Application with ALB and Auto Scaling
 
 A highly available, horizontally scalable web application on AWS. Traffic flows **Route 53 → CloudFront → WAF → Application Load Balancer → EC2 Auto Scaling Group → Multi-AZ RDS PostgreSQL**, across two Availability Zones, with administrative access through **SSM Session Manager** (no bastion host) and monitoring through **CloudWatch and SNS**.
 
