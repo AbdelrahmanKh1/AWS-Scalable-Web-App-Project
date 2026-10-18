@@ -16,7 +16,7 @@ A highly available, horizontally scalable web application on AWS. Traffic flows 
 
 ## Architecture Diagram
 
-![Project 1 architecture diagram](docs/architecture (1).png)
+![Project 1 architecture diagram](docs/architecture.png)
 
 *Editable source: [`docs/architecture.drawio`](docs/architecture.drawio) (open with [diagrams.net](https://app.diagrams.net/)). The color legend is included in the diagram.*
 
