@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project 1: Scalable Web App</title>
+  <style>
+    :root { --bg:#f6f8fb; --card:#fff; --text:#1c2733; --muted:#5b6b7b; --line:#dde3ea; --accent:#1e88e5; --ok:#2e7d32; --bad:#c62828; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg:#0f1720; --card:#17212c; --text:#e8eef5; --muted:#9fb0c1; --line:#2a3846; --accent:#4aa3f0; --ok:#66bb6a; --bad:#ef5350; }
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+    main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+    h1 { font-size:1.4rem; margin:0 0 4px; }
+    .sub { color:var(--muted); margin:0 0 20px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+    .label { font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .value { font-weight:600; word-break:break-all; }
+    .ok { color:var(--ok); } .bad { color:var(--bad); }
+    form { display:flex; gap:8px; }
+    input[type=text] { flex:1; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+    button { padding:10px 14px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; cursor:pointer; }
+    button.ghost { background:transparent; color:var(--accent); border:1px solid var(--line); }
+    ul { list-style:none; margin:12px 0 0; padding:0; }
+    li { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+    li span { flex:1; word-break:break-word; } li.done span { text-decoration:line-through; color:var(--muted); }
+    #msg { min-height:1.4em; color:var(--bad); margin:8px 0 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Project 1: Scalable Web App</h1>
+  <p class="sub">Route 53 → CloudFront → WAF → ALB → EC2 Auto Scaling Group → RDS PostgreSQL</p>
+
+  <section class="card">
+    <div class="grid">
+      <div><div class="label">Instance</div><div class="value" id="instance">…</div></div>
+      <div><div class="label">Availability Zone</div><div class="value" id="az">…</div></div>
+      <div><div class="label">Database</div><div class="value" id="db">…</div></div>
+      <div><div class="label">Uptime</div><div class="value" id="uptime">…</div></div>
+    </div>
+    <p style="margin:12px 0 0"><button class="ghost" id="refresh" type="button">Refresh (may hit another instance)</button></p>
+  </section>
+
+  <section class="card">
+    <form id="form">
+      <input type="text" id="title" maxlength="200" placeholder="Add a task" aria-label="Task title" required>
+      <button type="submit">Add</button>
+    </form>
+    <div id="msg" role="alert"></div>
+    <ul id="list"></ul>
+  </section>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const msg = (text) => { $('msg').textContent = text || ''; };
+
+  async function api(path, options) {
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
+    if (res.status === 204) return null;
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+    return body;
+  }
+
+  async function loadInfo() {
+    try {
+      const info = await api('/api/info');
+      $('instance').textContent = info.instanceId;
+      $('az').textContent = info.availabilityZone;
+      $('uptime').textContent = `${info.uptimeSeconds}s`;
+      $('db').textContent = info.database ? 'connected' : 'unavailable';
+      $('db').className = `value ${info.database ? 'ok' : 'bad'}`;
+    } catch (err) { msg(err.message); }
+  }
+
+  async function loadTasks() {
+    try {
+      const tasks = await api('/api/tasks');
+      const list = $('list');
+      list.replaceChildren();
+      for (const task of tasks) {
+        const li = document.createElement('li');
+        if (task.done) li.className = 'done';
+        const title = document.createElement('span');
+        title.textContent = task.title;
+        const toggle = document.createElement('button');
+        toggle.className = 'ghost'; toggle.type = 'button';
+        toggle.textContent = task.done ? 'Undo' : 'Done';
+        toggle.onclick = () => act(() => api(`/api/tasks/${task.id}`, { method: 'PATCH' }));
+        const del = document.createElement('button');
+        del.className = 'ghost'; del.type = 'button'; del.textContent = 'Delete';
+        del.onclick = () => act(() => api(`/api/tasks/${task.id}`, { method: 'DELETE' }));
+        li.append(title, toggle, del);
+        list.append(li);
+      }
+      msg('');
+    } catch (err) { msg(err.message); }
+  }
+
+  async function act(fn) {
+    try { await fn(); await loadTasks(); } catch (err) { msg(err.message); }
+  }
+
+  $('form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const title = $('title').value.trim();
+    if (!title) return;
+    act(async () => { await api('/api/tasks', { method: 'POST', body: JSON.stringify({ title }) }); $('title').value = ''; });
+  });
+  $('refresh').addEventListener('click', () => { loadInfo(); loadTasks(); });
+
+  loadInfo();
+  loadTasks();
+</script>
+</body>
+</html>
