@@ -66,7 +66,7 @@ npm test                                                     # tests that need n
 TEST_DB_HOST=localhost TEST_DB_USER=appuser TEST_DB_PASSWORD=change-me TEST_DB_NAME=appdb npm test   # plus database tests
 ```
 
-The suite covers the health endpoints (including with the database down), the IMDSv2 token flow against a fake metadata server, input validation, SQL-injection handling, CRUD against real PostgreSQL, and two instances initialising the schema at the same time. The database integration tests require a reachable PostgreSQL instance and the `TEST_DB_*` environment variables shown above.
+The suite covers the health endpoints (including with the database down), the IMDSv2 token flow against a fake metadata server, input validation, SQL-injection handling, CRUD against real PostgreSQL, and two instances initialising the schema at the same time. GitHub Actions runs the suite on Node 20 and 22 with a PostgreSQL service container (`.github/workflows/ci.yml`). The database integration tests require a reachable PostgreSQL instance and the `TEST_DB_*` environment variables shown above.
 
 ## Design notes
 
@@ -83,6 +83,6 @@ The suite covers the health endpoints (including with the database down), the IM
 
 ## Deploying to EC2
 
-[`deploy/user-data.sh`](../deploy/user-data.sh) is the Launch Template user data for Amazon Linux 2023. It installs Node.js, clones this repository, runs `npm ci --omit=dev`, downloads the RDS CA bundle, writes `/etc/project1-app.env`, and starts the [`project1-app.service`](../deploy/project1-app.service) systemd unit. Edit the variables at the top of the script (region, RDS endpoint, secret ARN) first.
+[`deploy/user-data.sh`](../deploy/user-data.sh) is a reusable bootstrap template for Amazon Linux 2023. Its region, RDS endpoint, and secret ARN values are placeholders and must be replaced before use. It is not an exact copy of the Launch Template user data used by the deployed environment: the running instances were launched from a prepared AMI, with database connection settings supplied through Launch Template user data. The [`project1-app.service`](../deploy/project1-app.service) file documents the systemd service configuration.
 
 The instance role needs `secretsmanager:GetSecretValue` on the database secret (already in Step 5 of the deployment runbook), and the instance needs outbound access through the NAT Gateway to reach GitHub, the npm registry and the package repositories.
