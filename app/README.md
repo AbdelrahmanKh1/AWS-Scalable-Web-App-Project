@@ -25,7 +25,7 @@ Stack: Node.js 20+, Express 5, `pg`, AWS SDK v3 (Secrets Manager only).
 
 ## Configuration
 
-All configuration is through environment variables (see [`.env.example`](.env.example)).
+All configuration is supplied through environment variables. For local development, create an untracked `.env` file in the `app/` directory; do not commit credentials.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ docker run -d --name p1-db -p 5432:5432 \
 # 2. The app
 cd app
 npm ci
-cp .env.example .env        # edit DB_PASSWORD if you changed it
+# Create .env with DB_HOST, DB_PORT, DB_NAME, DB_USER and DB_PASSWORD
 node --env-file=.env src/server.js
 # open http://localhost:8080
 ```
@@ -66,7 +66,7 @@ npm test                                                     # tests that need n
 TEST_DB_HOST=localhost TEST_DB_USER=appuser TEST_DB_PASSWORD=change-me TEST_DB_NAME=appdb npm test   # plus database tests
 ```
 
-The suite covers the health endpoints (including with the database down), the IMDSv2 token flow against a fake metadata server, input validation, SQL-injection handling, CRUD against real PostgreSQL, and two instances initialising the schema at the same time. GitHub Actions runs it on Node 20 and 22 with a PostgreSQL service container (`.github/workflows/ci.yml`).
+The suite covers the health endpoints (including with the database down), the IMDSv2 token flow against a fake metadata server, input validation, SQL-injection handling, CRUD against real PostgreSQL, and two instances initialising the schema at the same time. The database integration tests require a reachable PostgreSQL instance and the `TEST_DB_*` environment variables shown above.
 
 ## Design notes
 
