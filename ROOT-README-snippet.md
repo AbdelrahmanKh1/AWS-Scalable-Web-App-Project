@@ -1,7 +1,5 @@
-## Application
+# Repository documentation note
 
-The repository includes a small Node.js service (Express and PostgreSQL) that makes the architecture visible: its status page shows which EC2 instance and Availability Zone served each request, and a simple task list is stored in the Multi-AZ RDS database. The ALB health check endpoint (`/health`) is deliberately independent of the database.
+The root `README.md` is the primary project documentation. It links to the application guide at [`app/README.md`](app/README.md), deployment templates in [`deploy/`](deploy/), and the architecture diagrams in [`docs/`](docs/).
 
-- Source, endpoints, configuration and local setup: [`app/README.md`](app/README.md)
-- EC2 Launch Template user data and systemd unit: [`deploy/`](deploy/)
-- Automated tests (Node 20 and 22, real PostgreSQL) run in GitHub Actions: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+The deployment-specific values used in AWS are intentionally not stored in this repository. Do not add database passwords, secret values, private keys, or other credentials.
