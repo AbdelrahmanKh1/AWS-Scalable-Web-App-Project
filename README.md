@@ -21,46 +21,23 @@ A practical AWS deployment of a Node.js web application using an Application Loa
 
 ## Architecture Diagram
 
-The following diagram reflects the **currently deployed** environment. It distinguishes the public request path from operational services and shows the cost-saving single-NAT and Single-AZ database choices.
+The repository includes two diagrams, each serving a different purpose:
 
-```mermaid
-flowchart LR
-    U[Users / Browsers] -->|HTTPS| CF[CloudFront<br/>HTTPS viewer + caching]
-    CF -->|HTTP origin :80| ALB[Internet-facing ALB<br/>HTTP listener]
-    WAF[Regional AWS WAF<br/>3 managed rule groups] -. attached to .-> ALB
+### 1. Detailed Reference Architecture
 
-    subgraph VPC["VPC 10.20.0.0/16 — us-east-1"]
-      subgraph PUB["Public subnets"]
-        ALB
-        NAT[One NAT Gateway<br/>public-a / us-east-1a]
-      end
-      subgraph APP["Private application subnets — two AZs"]
-        ASG[EC2 Auto Scaling Group<br/>Min 2 · Desired 2 · Max 4]
-        A[EC2 app instance A<br/>:8080 · no public IP]
-        B[EC2 app instance B<br/>:8080 · no public IP]
-        ASG --- A
-        ASG --- B
-      end
-      subgraph DB["Private database subnets — subnet group spans two AZs"]
-        RDS[(RDS PostgreSQL<br/>Single-AZ · private)]
-      end
-      ALB -->|HTTP :8080| A
-      ALB -->|HTTP :8080| B
-      A -->|TLS :5432| RDS
-      B -->|TLS :5432| RDS
-      A -. outbound / SSM .-> NAT
-      B -. outbound via shared NAT .-> NAT
-    end
+This is the original, more detailed AWS-style diagram with service icons. It presents the broader target design and is retained as a visual reference. Some components or high-availability configurations shown in this diagram were not deployed because of the project's cost constraints.
 
-    SM[Secrets Manager<br/>DB credentials] -. instance role .-> ASG
-    CW[CloudWatch dashboard + alarms] --> SNS[SNS email alerts]
-    SSM[Systems Manager Session Manager<br/>access via NAT] -.-> ASG
-    R53[Route 53 hosted zone + ALB health check<br/>Custom-domain delegation pending] -. not yet serving domain traffic .-> ALB
-```
+![Detailed AWS reference architecture](docs/architecture.drawio.png)
 
-Editable source: [`docs/architecture.drawio`](docs/architecture.drawio) (open with [diagrams.net](https://app.diagrams.net/)).
+### 2. Actual Deployed Architecture
 
-**Implementation notes:** The ALB currently accepts HTTP on port 80 and CloudFront connects to the origin over HTTP. The Regional WAF is associated with the ALB. The RDS subnet group spans two Availability Zones, but the deployed database is Single-AZ. Both private application subnets share one NAT Gateway in `us-east-1a`. Route 53 has a hosted zone and ALB health check, but custom-domain delegation and alias routing are not complete.
+This diagram reflects the resources that were actually created and tested in AWS. Use it when reviewing the implementation, network paths, and current limitations.
+
+![As-built AWS architecture](docs/aws-scalable-web-app-architecture.png)
+
+**Cost-driven implementation decisions:** The deployed environment uses one shared NAT Gateway instead of one per Availability Zone, and a Single-AZ RDS PostgreSQL instance instead of Multi-AZ RDS. These choices reduced ongoing costs while allowing the core application, networking, security, load balancing, scaling, and monitoring workflows to be implemented and tested.
+
+Editable Draw.io source: [`docs/architecture.drawio`](docs/architecture.drawio) (open with [diagrams.net](https://app.diagrams.net/)). The PNG diagrams are provided for convenient viewing in GitHub.
 
 ---
 
@@ -367,7 +344,7 @@ These items are not represented as completed features:
 7. **Custom NACLs are applied only to the database subnets.** Public and application subnets still use the default NACL.
 8. **ALB origin access is not restricted to CloudFront.** The ALB security group currently permits inbound TCP 80 and 443 from the internet. The application instances remain restricted to traffic from the ALB security group.
 
-Recommended follow-up work is to complete DNS delegation, request and validate an ACM certificate for the custom domain, add an ALB HTTPS listener, configure CloudFront to use HTTPS to the origin, review the ALB ingress restriction strategy, update the architecture diagram to match the deployed resources, and enable Multi-AZ RDS if the project budget allows.
+Recommended follow-up work is to complete DNS delegation, request and validate an ACM certificate for the custom domain, add an ALB HTTPS listener, configure CloudFront to use HTTPS to the origin, review the ALB ingress restriction strategy, and enable Multi-AZ RDS if the project budget allows.
 
 ---
 
