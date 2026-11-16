@@ -21,11 +21,46 @@ A practical AWS deployment of a Node.js web application using an Application Loa
 
 ## Architecture Diagram
 
-![Project architecture diagram](docs/architecture.drawio.png)
+The following diagram reflects the **currently deployed** environment. It distinguishes the public request path from operational services and shows the cost-saving single-NAT and Single-AZ database choices.
 
-Editable diagram source: [`docs/architecture.drawio`](docs/architecture.drawio) (open with [diagrams.net](https://app.diagrams.net/)).
+```mermaid
+flowchart LR
+    U[Users / Browsers] -->|HTTPS| CF[CloudFront<br/>HTTPS viewer + caching]
+    CF -->|HTTP origin :80| ALB[Internet-facing ALB<br/>HTTP listener]
+    WAF[Regional AWS WAF<br/>3 managed rule groups] -. attached to .-> ALB
 
-**Diagram status:** The diagram is the original target-design illustration and may still show planned components that differ from the deployed environment. Use the as-built details in this README as the source of truth. The diagram should be updated to match the current deployment before being treated as an exact as-built diagram.
+    subgraph VPC["VPC 10.20.0.0/16 — us-east-1"]
+      subgraph PUB["Public subnets"]
+        ALB
+        NAT[One NAT Gateway<br/>public-a / us-east-1a]
+      end
+      subgraph APP["Private application subnets — two AZs"]
+        ASG[EC2 Auto Scaling Group<br/>Min 2 · Desired 2 · Max 4]
+        A[EC2 app instance A<br/>:8080 · no public IP]
+        B[EC2 app instance B<br/>:8080 · no public IP]
+        ASG --- A
+        ASG --- B
+      end
+      subgraph DB["Private database subnets — subnet group spans two AZs"]
+        RDS[(RDS PostgreSQL<br/>Single-AZ · private)]
+      end
+      ALB -->|HTTP :8080| A
+      ALB -->|HTTP :8080| B
+      A -->|TLS :5432| RDS
+      B -->|TLS :5432| RDS
+      A -. outbound / SSM .-> NAT
+      B -. outbound via shared NAT .-> NAT
+    end
+
+    SM[Secrets Manager<br/>DB credentials] -. instance role .-> ASG
+    CW[CloudWatch dashboard + alarms] --> SNS[SNS email alerts]
+    SSM[Systems Manager Session Manager<br/>access via NAT] -.-> ASG
+    R53[Route 53 hosted zone + ALB health check<br/>Custom-domain delegation pending] -. not yet serving domain traffic .-> ALB
+```
+
+Editable source: [`docs/architecture.drawio`](docs/architecture.drawio) (open with [diagrams.net](https://app.diagrams.net/)).
+
+**Implementation notes:** The ALB currently accepts HTTP on port 80 and CloudFront connects to the origin over HTTP. The Regional WAF is associated with the ALB. The RDS subnet group spans two Availability Zones, but the deployed database is Single-AZ. Both private application subnets share one NAT Gateway in `us-east-1a`. Route 53 has a hosted zone and ALB health check, but custom-domain delegation and alias routing are not complete.
 
 ---
 
